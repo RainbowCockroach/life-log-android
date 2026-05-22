@@ -5,13 +5,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.rainbowcockroach.lifelog.ui.editor.EditorScreen
+import com.rainbowcockroach.lifelog.ui.settings.SettingsScreen
 import com.rainbowcockroach.lifelog.ui.theme.LifeLogTheme
+
+private object Routes {
+    const val EDITOR = "editor"
+    const val SETTINGS = "settings"
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,29 +25,18 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             LifeLogTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    val nav = rememberNavController()
+                    NavHost(navController = nav, startDestination = Routes.EDITOR) {
+                        composable(Routes.EDITOR) {
+                            EditorScreen(onOpenSettings = { nav.navigate(Routes.SETTINGS) })
+                        }
+                        composable(Routes.SETTINGS) {
+                            SettingsScreen(onBack = { nav.popBackStack() })
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    LifeLogTheme {
-        Greeting("Android")
     }
 }
