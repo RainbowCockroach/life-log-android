@@ -10,7 +10,7 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
 object SyncScheduler {
-    private const val UNIQUE_WORK_NAME = "sync_pending_entries"
+    const val UNIQUE_WORK_NAME = "sync_pending_entries"
     private const val TAG_SYNC_WORK_NAME = "sync_tags"
 
     /**
