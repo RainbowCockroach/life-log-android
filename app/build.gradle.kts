@@ -11,11 +11,13 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        val buildNumber = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
+
         applicationId = "com.rainbowcockroach.lifelog"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = buildNumber
+        versionName = "build-$buildNumber"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
