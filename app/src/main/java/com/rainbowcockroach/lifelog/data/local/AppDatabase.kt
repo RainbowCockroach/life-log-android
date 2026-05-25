@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PendingEntry::class, CachedTag::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +34,42 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE pending_entries ADD COLUMN tagIdsJson TEXT NOT NULL DEFAULT '[]'"
                 )
+            }
+        }
+
+        // Switches the pending_entries PK from a UUID `localId` to a Long `id` that doubles as
+        // the server's entry id (= local timestamp at save time). Drops the obsolete `remoteId`.
+        // Existing rows are migrated by using `createdAt` as the new id; on the off chance two
+        // rows share a millisecond, INSERT OR IGNORE drops the later duplicate (acceptable for an
+        // MVP-stage write-only queue that rarely holds more than a handful of rows).
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE pending_entries_new (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        content TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        mediaLocalPaths TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        lastError TEXT,
+                        attempts INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        locationId INTEGER,
+                        tagIdsJson TEXT NOT NULL DEFAULT '[]'
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO pending_entries_new
+                        (id, content, createdAt, mediaLocalPaths, status, lastError, attempts, updatedAt, locationId, tagIdsJson)
+                    SELECT createdAt, content, createdAt, mediaLocalPaths, status, lastError, attempts, updatedAt, locationId, tagIdsJson
+                    FROM pending_entries
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE pending_entries")
+                db.execSQL("ALTER TABLE pending_entries_new RENAME TO pending_entries")
             }
         }
     }

@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class CreateEntryRequest(
+    /** Client-assigned id = local timestamp at save time. Server uses this as the entry id. */
+    val id: Long? = null,
     val content: String,
     val searchHint: String = "",
     val mediaPaths: List<String> = emptyList(),

@@ -6,22 +6,21 @@ import androidx.room.PrimaryKey
 /**
  * Queued diary entry waiting to be synced to the server.
  *
- * Lives only on the device. After successful sync we either delete the row or mark it SYNCED
- * and keep it briefly for the user to confirm.
+ * Lives only on the device. After successful sync we delete the row.
  *
- * Note: `localId` is a UUID — NOT used as the server's entry id. Server assigns `remoteId`.
- * We send `createdAt` so the entry keeps the time the user actually wrote it.
+ * `id` is the local timestamp at save time and doubles as the server's entry id once synced.
+ * This keeps offline entries sorted by their real creation time on the server (the list view
+ * sorts by `id DESC`).
  */
 @Entity(tableName = "pending_entries")
 data class PendingEntry(
-    @PrimaryKey val localId: String,
+    @PrimaryKey val id: Long,
     val content: String,
     val createdAt: Long,
     /** JSON array of absolute file paths in app internal storage. */
     val mediaLocalPaths: String,
     /** PENDING | UPLOADING | SYNCED | FAILED */
     val status: String,
-    val remoteId: Long? = null,
     val lastError: String? = null,
     val attempts: Int = 0,
     val updatedAt: Long = System.currentTimeMillis(),

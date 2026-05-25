@@ -19,8 +19,8 @@ interface PendingEntryDao {
     @Query("SELECT * FROM pending_entries WHERE status IN ('PENDING','FAILED') ORDER BY createdAt ASC")
     suspend fun loadUnsynced(): List<PendingEntry>
 
-    @Query("SELECT * FROM pending_entries WHERE localId = :localId")
-    suspend fun findById(localId: String): PendingEntry?
+    @Query("SELECT * FROM pending_entries WHERE id = :id")
+    suspend fun findById(id: Long): PendingEntry?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entry: PendingEntry)
@@ -28,6 +28,6 @@ interface PendingEntryDao {
     @Update
     suspend fun update(entry: PendingEntry)
 
-    @Query("DELETE FROM pending_entries WHERE localId = :localId")
-    suspend fun delete(localId: String)
+    @Query("DELETE FROM pending_entries WHERE id = :id")
+    suspend fun delete(id: Long)
 }

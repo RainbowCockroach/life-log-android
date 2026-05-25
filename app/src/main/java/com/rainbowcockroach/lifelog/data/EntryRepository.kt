@@ -14,13 +14,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.UUID
 
 /**
  * The only place that knows how local queue rows turn into server entries.
  *
- * Save path:    enqueue() — write to Room, return immediately. SyncWorker picks it up.
- * Sync path:    syncOne() — upload each local image, then POST /entries. Updates row status.
+ * Save path:    enqueue() — write to Room with id = now(), return immediately. SyncWorker picks it up.
+ * Sync path:    syncOne() — upload each local image, then POST /entries with the same id. Updates row status.
  */
 class EntryRepository(
     private val dao: PendingEntryDao,
@@ -39,11 +38,11 @@ class EntryRepository(
         locationId: Long,
         tagIds: List<Long> = emptyList(),
         createdAt: Long = System.currentTimeMillis(),
-    ): String {
-        val id = UUID.randomUUID().toString()
+    ): Long {
+        val id = createdAt
         dao.upsert(
             PendingEntry(
-                localId = id,
+                id = id,
                 content = content,
                 createdAt = createdAt,
                 mediaLocalPaths = Json.encodeToString(pathListSerializer, mediaLocalPaths),
@@ -58,19 +57,19 @@ class EntryRepository(
     suspend fun loadUnsynced(): List<PendingEntry> = dao.loadUnsynced()
 
     /** Clear the last error and mark a row PENDING so the next SyncWorker run will pick it up. */
-    suspend fun resetForRetry(localId: String) {
-        val row = dao.findById(localId) ?: return
+    suspend fun resetForRetry(id: Long) {
+        val row = dao.findById(id) ?: return
         dao.update(row.copy(status = PendingEntry.STATUS_PENDING, lastError = null))
     }
 
     /** Drop a queued entry and delete its locally-staged images. Use for poison rows. */
-    suspend fun discard(localId: String) {
-        val row = dao.findById(localId) ?: return
+    suspend fun discard(id: Long) {
+        val row = dao.findById(id) ?: return
         val paths = runCatching {
             Json.decodeFromString(pathListSerializer, row.mediaLocalPaths)
         }.getOrDefault(emptyList())
         paths.forEach { imageStorage.delete(it) }
-        dao.delete(localId)
+        dao.delete(id)
     }
 
     /**
@@ -108,6 +107,7 @@ class EntryRepository(
 
             apiClient.createEntry(
                 CreateEntryRequest(
+                    id = entry.id,
                     content = content,
                     mediaPaths = uploadedServerPaths,
                     createdAt = formatIso(entry.createdAt),
@@ -117,7 +117,7 @@ class EntryRepository(
             )
 
             localPaths.forEach { imageStorage.delete(it) }
-            dao.delete(entry.localId)
+            dao.delete(entry.id)
         } catch (t: Throwable) {
             dao.update(
                 entry.copy(
