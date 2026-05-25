@@ -6,6 +6,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -21,6 +25,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -29,6 +35,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
@@ -55,6 +62,8 @@ fun EditorScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pendingCount by viewModel.pendingCount.collectAsStateWithLifecycle()
     var showLinkDialog by remember { mutableStateOf(false) }
+    var showLocationPicker by remember { mutableStateOf(false) }
+    var showTagPicker by remember { mutableStateOf(false) }
 
     val pickMedia = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -83,16 +92,16 @@ fun EditorScreen(
     ) { padding ->
         EditorContent(
             padding = padding,
-            content = state.content,
-            mediaPaths = state.mediaPaths,
-            isSaving = state.isSaving,
-            savedFlash = state.savedFlash,
+            state = state,
             onContentChange = viewModel::onContentChange,
             onPickImage = { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             onAddLink = { showLinkDialog = true },
             onRemoveImage = viewModel::removeImage,
             onSave = viewModel::save,
             onClearFlash = viewModel::clearFlash,
+            onOpenLocationPicker = { showLocationPicker = true },
+            onOpenTagPicker = { showTagPicker = true },
+            onRemoveTag = viewModel::removeTag,
         )
 
         if (showLinkDialog) {
@@ -104,25 +113,54 @@ fun EditorScreen(
                 }
             )
         }
+
+        if (showLocationPicker) {
+            TagPickerSheet(
+                title = "Location",
+                type = "location",
+                selectedIds = setOfNotNull(state.location?.id),
+                allowMultiSelect = false,
+                allowCreate = true,
+                search = viewModel::searchTags,
+                onCreate = viewModel::createTag,
+                onPick = { viewModel.setLocation(it) },
+                onDismiss = { showLocationPicker = false },
+            )
+        }
+
+        if (showTagPicker) {
+            TagPickerSheet(
+                title = "Tags",
+                type = "tag",
+                selectedIds = state.tags.map { it.id }.toSet(),
+                allowMultiSelect = true,
+                allowCreate = true,
+                search = viewModel::searchTags,
+                onCreate = viewModel::createTag,
+                onPick = { viewModel.toggleTag(it) },
+                onDismiss = { showTagPicker = false },
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EditorContent(
     padding: PaddingValues,
-    content: String,
-    mediaPaths: List<String>,
-    isSaving: Boolean,
-    savedFlash: Boolean,
+    state: EditorUiState,
     onContentChange: (String) -> Unit,
     onPickImage: () -> Unit,
     onAddLink: () -> Unit,
     onRemoveImage: (String) -> Unit,
     onSave: () -> Unit,
     onClearFlash: () -> Unit,
+    onOpenLocationPicker: () -> Unit,
+    onOpenTagPicker: () -> Unit,
+    onRemoveTag: (com.rainbowcockroach.lifelog.data.local.CachedTag) -> Unit,
 ) {
-    LaunchedEffect(savedFlash) {
-        if (savedFlash) {
+    LaunchedEffect(state.savedFlash) {
+        if (state.savedFlash) {
             kotlinx.coroutines.delay(1200)
             onClearFlash()
         }
@@ -134,8 +172,55 @@ private fun EditorContent(
             .padding(padding)
             .padding(12.dp)
     ) {
+        // Location (required) + tags toggles, single row.
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AssistChip(
+                onClick = onOpenLocationPicker,
+                leadingIcon = {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+                label = { Text(state.location?.name ?: "Location *") },
+                colors = if (state.location == null) {
+                    AssistChipDefaults.assistChipColors(
+                        labelColor = MaterialTheme.colorScheme.error,
+                        leadingIconContentColor = MaterialTheme.colorScheme.error,
+                    )
+                } else AssistChipDefaults.assistChipColors(),
+            )
+            AssistChip(
+                onClick = onOpenTagPicker,
+                label = {
+                    val count = state.tags.size
+                    Text(if (count == 0) "Tags" else "Tags · $count")
+                },
+            )
+            state.tags.forEach { tag ->
+                InputChip(
+                    selected = true,
+                    onClick = { onRemoveTag(tag) },
+                    label = { Text(tag.name) },
+                    trailingIcon = {
+                        Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
+                    },
+                )
+            }
+        }
+
+        if (state.errorMessage != null) {
+            Text(
+                state.errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
         OutlinedTextField(
-            value = content,
+            value = state.content,
             onValueChange = onContentChange,
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,14 +229,14 @@ private fun EditorContent(
             label = { Text("Markdown") },
         )
 
-        if (mediaPaths.isNotEmpty()) {
+        if (state.mediaPaths.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(mediaPaths) { path ->
+                items(state.mediaPaths) { path ->
                     Box {
                         AsyncImage(
                             model = File(path),
@@ -183,11 +268,11 @@ private fun EditorContent(
                 Text("🔗 Link")
             }
             Box(modifier = Modifier.weight(1f))
-            if (savedFlash) {
+            if (state.savedFlash) {
                 Text("Queued ✓", modifier = Modifier.padding(end = 8.dp))
             }
-            Button(onClick = onSave, enabled = !isSaving) {
-                if (isSaving) {
+            Button(onClick = onSave, enabled = !state.isSaving) {
+                if (state.isSaving) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp))
                 } else {
                     Icon(Icons.Default.Send, contentDescription = null)

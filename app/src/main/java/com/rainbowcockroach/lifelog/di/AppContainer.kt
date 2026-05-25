@@ -3,6 +3,7 @@ package com.rainbowcockroach.lifelog.di
 import android.content.Context
 import androidx.room.Room
 import com.rainbowcockroach.lifelog.data.EntryRepository
+import com.rainbowcockroach.lifelog.data.TagRepository
 import com.rainbowcockroach.lifelog.data.local.AppDatabase
 import com.rainbowcockroach.lifelog.data.local.SettingsStore
 import com.rainbowcockroach.lifelog.data.remote.ApiClient
@@ -21,7 +22,9 @@ class AppContainer(context: Context) {
         context,
         AppDatabase::class.java,
         "lifelog.db"
-    ).build()
+    )
+        .addMigrations(AppDatabase.MIGRATION_1_2)
+        .build()
 
     val imageStorage: ImageStorage = ImageStorage(context)
 
@@ -31,5 +34,10 @@ class AppContainer(context: Context) {
         dao = database.pendingEntryDao(),
         apiClient = apiClient,
         imageStorage = imageStorage,
+    )
+
+    val tagRepository: TagRepository = TagRepository(
+        dao = database.cachedTagDao(),
+        api = apiClient,
     )
 }

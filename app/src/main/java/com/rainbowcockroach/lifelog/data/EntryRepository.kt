@@ -28,11 +28,18 @@ class EntryRepository(
     private val imageStorage: ImageStorage,
 ) {
     private val pathListSerializer = ListSerializer(String.serializer())
+    private val longListSerializer = ListSerializer(Long.serializer())
 
     fun observePending(): Flow<List<PendingEntry>> = dao.observeAll()
     fun observeUnsyncedCount(): Flow<Int> = dao.observeUnsyncedCount()
 
-    suspend fun enqueue(content: String, mediaLocalPaths: List<String>, createdAt: Long = System.currentTimeMillis()): String {
+    suspend fun enqueue(
+        content: String,
+        mediaLocalPaths: List<String>,
+        locationId: Long,
+        tagIds: List<Long> = emptyList(),
+        createdAt: Long = System.currentTimeMillis(),
+    ): String {
         val id = UUID.randomUUID().toString()
         dao.upsert(
             PendingEntry(
@@ -41,6 +48,8 @@ class EntryRepository(
                 createdAt = createdAt,
                 mediaLocalPaths = Json.encodeToString(pathListSerializer, mediaLocalPaths),
                 status = PendingEntry.STATUS_PENDING,
+                locationId = locationId,
+                tagIdsJson = Json.encodeToString(longListSerializer, tagIds),
             )
         )
         return id
@@ -77,11 +86,17 @@ class EntryRepository(
                 content = content.replace("pending://${file.name}", resp.filename)
             }
 
+            val tagIds = runCatching {
+                Json.decodeFromString(longListSerializer, entry.tagIdsJson)
+            }.getOrDefault(emptyList())
+
             apiClient.createEntry(
                 CreateEntryRequest(
                     content = content,
                     mediaPaths = uploadedServerPaths,
                     createdAt = formatIso(entry.createdAt),
+                    locationId = entry.locationId,
+                    tagIds = tagIds,
                 )
             )
 
