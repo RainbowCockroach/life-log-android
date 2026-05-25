@@ -191,8 +191,16 @@ private fun UpdateSection() {
             },
             text = {
                 Column {
-                    Text("Latest: ${u.latestVersion}")
-                    Text("Installed: ${u.currentVersion}")
+                    Text("Latest: ${u.latestTag}${u.latestBuild?.let { " (build $it)" } ?: ""}")
+                    Text("Installed: ${BuildConfig.VERSION_NAME} (build ${u.currentBuild})")
+                    if (u.latestBuild == null) {
+                        Text(
+                            "Could not parse a build number from tag '${u.latestTag}'.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                     if (u.isNewer && !u.notes.isNullOrBlank()) {
                         Text(
                             u.notes.take(800),
@@ -219,7 +227,7 @@ private fun UpdateSection() {
                                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                             )
                         } else {
-                            installer.downloadAndInstall(u.apkUrl, u.latestVersion)
+                            installer.downloadAndInstall(u.apkUrl, u.latestTag)
                         }
                     }) { Text("Download & install") }
                 } else {

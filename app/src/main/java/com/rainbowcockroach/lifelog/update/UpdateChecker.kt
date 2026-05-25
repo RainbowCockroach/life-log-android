@@ -34,8 +34,9 @@ private data class GhRelease(
 )
 
 data class UpdateInfo(
-    val latestVersion: String,
-    val currentVersion: String,
+    val latestTag: String,
+    val latestBuild: Int?,
+    val currentBuild: Int,
     val isNewer: Boolean,
     val apkUrl: String?,
     val notes: String?,
@@ -51,13 +52,14 @@ class UpdateChecker {
             header("Accept", "application/vnd.github+json")
         }.bodyAsText()
         val release = json.decodeFromString(GhRelease.serializer(), text)
-        val latest = release.tag_name.removePrefix("v")
-        val current = BuildConfig.VERSION_NAME
+        val latestBuild = extractBuildNumber(release.tag_name)
+        val currentBuild = BuildConfig.VERSION_CODE
         val apk = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
         return UpdateInfo(
-            latestVersion = latest,
-            currentVersion = current,
-            isNewer = compareSemver(latest, current) > 0,
+            latestTag = release.tag_name,
+            latestBuild = latestBuild,
+            currentBuild = currentBuild,
+            isNewer = latestBuild != null && latestBuild > currentBuild,
             apkUrl = apk?.browser_download_url,
             notes = release.body,
             releaseUrl = release.html_url,
@@ -65,20 +67,9 @@ class UpdateChecker {
     }
 
     companion object {
-        fun compareSemver(a: String, b: String): Int {
-            val pa = parts(a)
-            val pb = parts(b)
-            val n = maxOf(pa.size, pb.size)
-            for (i in 0 until n) {
-                val x = pa.getOrElse(i) { 0 }
-                val y = pb.getOrElse(i) { 0 }
-                if (x != y) return x.compareTo(y)
-            }
-            return 0
-        }
-
-        private fun parts(v: String): List<Int> =
-            v.removePrefix("v").split(".", "-").mapNotNull { it.toIntOrNull() }
+        /** First integer in the tag, e.g. "build-3" -> 3, "v12" -> 12, "v1.2.3" -> 1. */
+        fun extractBuildNumber(tag: String): Int? =
+            Regex("\\d+").find(tag)?.value?.toIntOrNull()
     }
 }
 
