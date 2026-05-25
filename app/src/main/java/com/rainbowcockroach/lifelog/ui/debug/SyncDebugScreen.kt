@@ -61,15 +61,15 @@ class SyncDebugViewModel(app: Application) : AndroidViewModel(app) {
         SyncScheduler.schedule(getApplication(), replace = true)
     }
 
-    fun retry(localId: String) {
+    fun retry(id: Long) {
         viewModelScope.launch {
-            repo.resetForRetry(localId)
+            repo.resetForRetry(id)
             SyncScheduler.schedule(getApplication(), replace = true)
         }
     }
 
-    fun discard(localId: String) {
-        viewModelScope.launch { repo.discard(localId) }
+    fun discard(id: Long) {
+        viewModelScope.launch { repo.discard(id) }
     }
 }
 
@@ -124,11 +124,11 @@ fun SyncDebugScreen(
                     )
                 }
             } else {
-                items(entries, key = { it.localId }) { entry ->
+                items(entries, key = { it.id }) { entry ->
                     EntryCard(
                         entry = entry,
-                        onRetry = { viewModel.retry(entry.localId) },
-                        onDiscard = { viewModel.discard(entry.localId) },
+                        onRetry = { viewModel.retry(entry.id) },
+                        onDiscard = { viewModel.discard(entry.id) },
                         onCopyError = { copyToClipboard(context, "lifelog-error", it) },
                     )
                 }

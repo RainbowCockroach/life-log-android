@@ -81,7 +81,7 @@ app/src/main/java/com/rainbowcockroach/lifelog/
 
 ## Key rules (read before changing things)
 
-- **Never send local timestamp as the server `id`.** Server assigns ids. We send `createdAt` so the entry keeps its real time. See ARCHITECTURE.md → "Why not use local timestamps as ids".
+- **The id IS the local timestamp at save time.** `EntryRepository.enqueue` stamps `id = System.currentTimeMillis()` and that value is both the Room PK and the server entry id (sent in `CreateEntryRequest.id`). This keeps the server-side list (sorted by `id DESC`) in the order the user actually wrote things, even when entries sync hours or days later. See ARCHITECTURE.md → "Why we use the local timestamp as the id".
 - **All HTTP goes through `ApiClient`.** It reads the base URL and API key from `SettingsStore` on every call — never cache them.
 - **Saving an entry must not require network.** `EntryRepository.enqueue` writes to Room and returns; only `SyncScheduler.schedule` touches WorkManager (and WorkManager itself waits for network).
 - **Don't add Hilt yet.** Use `AppContainer`; it's a few lines and covers the whole app. Revisit if the graph grows past ~10 singletons.
