@@ -31,6 +31,22 @@ data class EntryResponse(
 )
 
 @Serializable
+data class TagDto(
+    val id: Long,
+    val name: String = "",
+    val searchHint: String = "",
+    val type: String = "tag",
+)
+
+@Serializable
+data class CreateTagRequest(
+    val name: String,
+    val searchHint: String = "",
+    val type: String = "tag",
+    val config: kotlinx.serialization.json.JsonObject = kotlinx.serialization.json.JsonObject(emptyMap()),
+)
+
+@Serializable
 data class UploadMediaResponse(
     val success: Boolean = true,
     val filename: String,

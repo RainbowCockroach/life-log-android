@@ -10,6 +10,7 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -72,6 +73,34 @@ class ApiClient(private val settings: SettingsStore) {
         }
         if (response.status != HttpStatusCode.OK) {
             error("Upload failed: HTTP ${response.status.value} ${response.bodyText()}")
+        }
+        return response.body()
+    }
+
+    /** Fetch the full tag list. Tags include both `type=tag` and `type=location`. */
+    suspend fun fetchAllTags(): List<TagDto> {
+        val baseUrl = settings.currentBaseUrl()
+        val apiKey = settings.currentApiKey()
+        val response = http.get("$baseUrl/tags") {
+            header("x-api-key", apiKey)
+        }
+        if (!response.status.isSuccess2xx()) {
+            error("Fetch tags failed: HTTP ${response.status.value} ${response.bodyText()}")
+        }
+        return response.body()
+    }
+
+    /** Create a new tag/location on the server. Returns the assigned id. */
+    suspend fun createTag(request: CreateTagRequest): TagDto {
+        val baseUrl = settings.currentBaseUrl()
+        val apiKey = settings.currentApiKey()
+        val response = http.post("$baseUrl/tags") {
+            header("x-api-key", apiKey)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (!response.status.isSuccess2xx()) {
+            error("Create tag failed: HTTP ${response.status.value} ${response.bodyText()}")
         }
         return response.body()
     }

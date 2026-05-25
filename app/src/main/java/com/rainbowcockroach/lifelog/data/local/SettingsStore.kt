@@ -2,6 +2,7 @@ package com.rainbowcockroach.lifelog.data.local
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -40,9 +41,18 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[KEY_API_KEY] = value.trim() }
     }
 
+    val lastUsedLocationId: Flow<Long?> = context.dataStore.data.map { it[KEY_LAST_LOCATION_ID] }
+
+    suspend fun currentLastUsedLocationId(): Long? = lastUsedLocationId.first()
+
+    suspend fun setLastUsedLocationId(id: Long) {
+        context.dataStore.edit { it[KEY_LAST_LOCATION_ID] = id }
+    }
+
     companion object {
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
         private val KEY_API_KEY = stringPreferencesKey("api_key")
+        private val KEY_LAST_LOCATION_ID = longPreferencesKey("last_used_location_id")
 
         /** Emulator host loopback. Replace via Settings screen for real device or prod. */
         const val DEFAULT_BASE_URL = "http://10.0.2.2:3000"

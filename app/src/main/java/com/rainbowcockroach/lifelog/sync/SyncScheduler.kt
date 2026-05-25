@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 
 object SyncScheduler {
     private const val UNIQUE_WORK_NAME = "sync_pending_entries"
+    private const val TAG_SYNC_WORK_NAME = "sync_tags"
 
     /**
      * Enqueue a sync. Safe to call repeatedly — if a sync is already pending or running
@@ -29,6 +30,24 @@ object SyncScheduler {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             UNIQUE_WORK_NAME,
+            if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /** Refresh the tag cache from the server. Cheap, safe to call on app start. */
+    fun scheduleTagSync(context: Context, replace: Boolean = false) {
+        val request = OneTimeWorkRequestBuilder<TagSyncWorker>()
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            TAG_SYNC_WORK_NAME,
             if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
             request,
         )
