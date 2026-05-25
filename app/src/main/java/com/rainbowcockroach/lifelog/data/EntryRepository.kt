@@ -57,6 +57,22 @@ class EntryRepository(
 
     suspend fun loadUnsynced(): List<PendingEntry> = dao.loadUnsynced()
 
+    /** Clear the last error and mark a row PENDING so the next SyncWorker run will pick it up. */
+    suspend fun resetForRetry(localId: String) {
+        val row = dao.findById(localId) ?: return
+        dao.update(row.copy(status = PendingEntry.STATUS_PENDING, lastError = null))
+    }
+
+    /** Drop a queued entry and delete its locally-staged images. Use for poison rows. */
+    suspend fun discard(localId: String) {
+        val row = dao.findById(localId) ?: return
+        val paths = runCatching {
+            Json.decodeFromString(pathListSerializer, row.mediaLocalPaths)
+        }.getOrDefault(emptyList())
+        paths.forEach { imageStorage.delete(it) }
+        dao.delete(localId)
+    }
+
     /**
      * Sync a single queued entry. Throws on failure (so WorkManager can retry with backoff).
      * On success the row is deleted and its local image files are removed.
