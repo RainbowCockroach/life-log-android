@@ -38,6 +38,8 @@ data class TagDto(
     val name: String = "",
     val searchHint: String = "",
     val type: String = "tag",
+    /** ISO-8601 timestamp from the server; null if the tag has never been used in an entry. */
+    val lastUsed: String? = null,
 )
 
 @Serializable
