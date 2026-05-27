@@ -45,15 +45,22 @@ jobs:
         run: |
           mkdir -p artifacts
           cp app/build/outputs/apk/release/app-release.apk \
-             artifacts/life-log-build-${{ github.run_number }}.apk
+             artifacts/life-log-latest.apk
+
+      - name: Delete previous latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Build ${{ github.run_number }}
+          tag_name: latest
+          name: Latest Build
           body: |
             Automated signed release build from commit ${{ github.sha }}.
             Branch: `${{ github.ref_name }}`
-          files: artifacts/life-log-build-*.apk
-          generate_release_notes: true
+            Build number: `${{ github.run_number }}`
+          files: artifacts/life-log-latest.apk
+          make_latest: 'true'
