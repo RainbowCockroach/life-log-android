@@ -28,22 +28,31 @@ class TagRepository(
     /** Pull-all-overwrite refresh. Tag list is small and rarely changes, so simpler than diffing. */
     suspend fun refreshFromServer() {
         val tags = api.fetchAllTags()
-        val existing = mutableMapOf<Long, Long?>()
-        // Preserve local lastUsed bumps that happened since the last sync.
-        tags.forEach { dto ->
-            val prior = dao.findById(dto.id)?.lastUsedMs
-            existing[dto.id] = prior
-        }
         val mapped = tags.map { dto ->
+            val serverMs = dto.lastUsed?.let { parseIsoToMs(it) }
+            val localMs = dao.findById(dto.id)?.lastUsedMs
+            // Merge: take whichever is more recent. Keeps offline bumps that haven't been
+            // reflected on the server yet, while also picking up usage from the web client.
+            val merged = when {
+                serverMs == null -> localMs
+                localMs == null -> serverMs
+                else -> maxOf(serverMs, localMs)
+            }
             CachedTag(
                 id = dto.id,
                 name = dto.name,
                 searchHint = dto.searchHint,
                 type = if (dto.type.isBlank()) "tag" else dto.type,
-                lastUsedMs = existing[dto.id],
+                lastUsedMs = merged,
             )
         }
         dao.upsertAll(mapped)
+    }
+
+    private fun parseIsoToMs(iso: String): Long? = try {
+        java.time.Instant.parse(iso).toEpochMilli()
+    } catch (_: java.time.format.DateTimeParseException) {
+        null
     }
 
     /** Online-only. Inserts into the local cache so the picker shows it immediately. */
