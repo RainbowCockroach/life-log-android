@@ -53,6 +53,7 @@ class UpdateChecker {
         }.bodyAsText()
         val release = json.decodeFromString(GhRelease.serializer(), text)
         val latestBuild = extractBuildNumber(release.tag_name)
+            ?: release.name?.let { extractBuildNumber(it) }
         val currentBuild = BuildConfig.VERSION_CODE
         val apk = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
         return UpdateInfo(

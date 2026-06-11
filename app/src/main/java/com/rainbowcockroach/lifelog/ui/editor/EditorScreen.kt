@@ -47,7 +47,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
@@ -65,10 +67,24 @@ fun EditorScreen(
     var showLocationPicker by remember { mutableStateOf(false) }
     var showTagPicker by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+
     val pickMedia = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) viewModel.addImage(uri)
+    }
+
+    // Holds the FileProvider Uri the camera app writes the captured photo into, until the
+    // result comes back and we import + downscale it like any other picked image.
+    var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val takePhoto = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = pendingCameraUri
+        if (success && uri != null) viewModel.addImage(uri)
+        pendingCameraUri = null
     }
 
     Scaffold(
@@ -95,6 +111,11 @@ fun EditorScreen(
             state = state,
             onContentChange = viewModel::onContentChange,
             onPickImage = { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onTakePhoto = {
+                val uri = createCameraImageUri(context)
+                pendingCameraUri = uri
+                takePhoto.launch(uri)
+            },
             onAddLink = { showLinkDialog = true },
             onRemoveImage = viewModel::removeImage,
             onSave = viewModel::save,
@@ -151,6 +172,7 @@ private fun EditorContent(
     state: EditorUiState,
     onContentChange: (String) -> Unit,
     onPickImage: () -> Unit,
+    onTakePhoto: () -> Unit,
     onAddLink: () -> Unit,
     onRemoveImage: (String) -> Unit,
     onSave: () -> Unit,
@@ -264,6 +286,9 @@ private fun EditorContent(
             IconButton(onClick = onPickImage) {
                 Icon(Icons.Default.Add, contentDescription = "Add image")
             }
+            TextButton(onClick = onTakePhoto) {
+                Text("📷 Photo")
+            }
             TextButton(onClick = onAddLink) {
                 Text("🔗 Link")
             }
@@ -281,6 +306,18 @@ private fun EditorContent(
             }
         }
     }
+}
+
+/**
+ * Creates an empty temp file in `filesDir/camera_temp/` and returns a FileProvider content Uri
+ * the camera app can write the captured photo into. The photo is imported + downscaled into
+ * permanent pending storage on result (see [EditorViewModel.addImage]); these temp files are
+ * disposable scratch space.
+ */
+private fun createCameraImageUri(context: android.content.Context): android.net.Uri {
+    val dir = File(context.filesDir, "camera_temp").apply { mkdirs() }
+    val file = File(dir, "capture_${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
 
 @Composable
