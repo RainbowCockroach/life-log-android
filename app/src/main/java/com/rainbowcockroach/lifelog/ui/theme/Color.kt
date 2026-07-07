@@ -10,14 +10,17 @@ import androidx.compose.ui.graphics.Color
  */
 
 // --- Light (paper) -------------------------------------------------------------
-val PaperBackground = Color(0xFFDFDBC3) // aged cream — the Novel background
-val PaperSurface = Color(0xFFE7E3CE)    // a shade lighter for cards/sheets/toolbars
-val PaperSurfaceVariant = Color(0xFFD2CDB2)
+// A light, warm sepia tuned for long-form reading comfort — sitting between Kindle's
+// #FBF0D9 and iBooks' #F8F1E3, kept a hair more aged so it still reads as the Novel theme
+// rather than a darker raw-linen beige.
+val PaperBackground = Color(0xFFF6EFD9) // warm cream page
+val PaperSurface = Color(0xFFFCF6E6)    // a shade lighter for cards/sheets/toolbars
+val PaperSurfaceVariant = Color(0xFFEBE2C8) // subtle fills: chips, selected date
 val PaperInk = Color(0xFF3B2322)        // dark sepia-brown — the Novel foreground
 val PaperInkMuted = Color(0xFF6E5A4E)   // secondary text / captions
 val InkBrown = Color(0xFF6F4E37)        // coffee-brown accent (buttons, cursor, links)
-val InkBrownOn = Color(0xFFF4F0DD)      // text/icons drawn on InkBrown
-val PaperOutline = Color(0xFFA4A390)    // Novel selection grey — hairlines & borders
+val InkBrownOn = Color(0xFFFCF6E6)      // text/icons drawn on InkBrown
+val PaperOutline = Color(0xFFC8BC9C)    // hairlines & borders — soft warm grey
 val NovelRed = Color(0xFFCC0000)        // Novel palette red — errors
 
 // --- Dark (night reading) ------------------------------------------------------

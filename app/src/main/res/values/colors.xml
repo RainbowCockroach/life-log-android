@@ -9,6 +9,6 @@
     <color name="white">#FFFFFFFF</color>
 
     <!-- Novel theme window backgrounds (avoids a flash before Compose paints). -->
-    <color name="novel_paper">#FFDFDBC3</color>
+    <color name="novel_paper">#FFF6EFD9</color>
     <color name="novel_night">#FF1E1A17</color>
 </resources>
