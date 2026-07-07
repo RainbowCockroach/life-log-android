@@ -7,4 +7,8 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Novel theme window backgrounds (avoids a flash before Compose paints). -->
+    <color name="novel_paper">#FFDFDBC3</color>
+    <color name="novel_night">#FF1E1A17</color>
 </resources>

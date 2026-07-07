@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.rainbowcockroach.lifelog.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -49,10 +50,20 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[KEY_LAST_LOCATION_ID] = id }
     }
 
+    /** Theme preference. Stored as a [ThemeMode] name; defaults to following the system. */
+    val themeMode: Flow<ThemeMode> = context.dataStore.data.map {
+        ThemeMode.fromName(it[KEY_THEME_MODE])
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { it[KEY_THEME_MODE] = mode.name }
+    }
+
     companion object {
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
         private val KEY_API_KEY = stringPreferencesKey("api_key")
         private val KEY_LAST_LOCATION_ID = longPreferencesKey("last_used_location_id")
+        private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
 
         /** Blank until the user configures a server via the Settings screen. */
         const val DEFAULT_BASE_URL = ""
