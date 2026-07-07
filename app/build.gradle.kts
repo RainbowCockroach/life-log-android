@@ -36,7 +36,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Shrink + obfuscate with R8 and strip unused resources. Cuts the
+            // release APK substantially (Compose + Ktor + Coil + Room pull in a
+            // lot that this app never touches). Keep rules live in
+            // proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -56,6 +61,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // Turn off build features this app doesn't use so AGP skips their
+        // tasks/codegen on every build.
+        aidl = false
+        renderScript = false
+        shaders = false
+        resValues = false
     }
 }
 
