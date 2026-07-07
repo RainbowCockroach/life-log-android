@@ -52,7 +52,11 @@ class UpdateChecker {
             header("Accept", "application/vnd.github+json")
         }.bodyAsText()
         val release = json.decodeFromString(GhRelease.serializer(), text)
-        val latestBuild = extractBuildNumber(release.tag_name)
+        // The CI publishes a rolling "latest" tag/name, so the real build number
+        // lives in the release body as "Build number: `12`". Prefer that, then
+        // fall back to any integer in the tag or name (e.g. "build-12", "v12").
+        val latestBuild = release.body?.let { extractBuildNumberFromBody(it) }
+            ?: extractBuildNumber(release.tag_name)
             ?: release.name?.let { extractBuildNumber(it) }
         val currentBuild = BuildConfig.VERSION_CODE
         val apk = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
@@ -71,6 +75,14 @@ class UpdateChecker {
         /** First integer in the tag, e.g. "build-3" -> 3, "v12" -> 12, "v1.2.3" -> 1. */
         fun extractBuildNumber(tag: String): Int? =
             Regex("\\d+").find(tag)?.value?.toIntOrNull()
+
+        /**
+         * Build number from a release body line like "Build number: `12`".
+         * Anchored on the label so it doesn't accidentally match digits in the
+         * commit hash or branch name.
+         */
+        fun extractBuildNumberFromBody(body: String): Int? =
+            Regex("(?i)build\\s*number[:\\s]*`?(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull()
     }
 }
 
