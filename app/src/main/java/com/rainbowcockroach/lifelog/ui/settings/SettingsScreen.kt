@@ -1,7 +1,9 @@
 package com.rainbowcockroach.lifelog.ui.settings
 
 import android.app.Application
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -43,7 +45,9 @@ import com.rainbowcockroach.lifelog.update.UpdateInfo
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
-    private val settings = (app as LifeLogApp).container.settings
+    private val container = (app as LifeLogApp).container
+    private val settings = container.settings
+    private val tagRepository = container.tagRepository
 
     suspend fun load(): Pair<String, String> =
         settings.currentBaseUrl() to settings.currentApiKey()
@@ -53,6 +57,22 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             settings.setBaseUrl(baseUrl)
             settings.setApiKey(apiKey)
             onDone()
+        }
+    }
+
+    /**
+     * Persists the current base URL + key, then pulls all tags/locations from the server.
+     * Doubles as a connection test: a failure surfaces the underlying HTTP/parse error.
+     */
+    fun sync(baseUrl: String, apiKey: String, onResult: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            settings.setBaseUrl(baseUrl)
+            settings.setApiKey(apiKey)
+            val result = runCatching {
+                tagRepository.refreshFromServer()
+                tagRepository.cacheSize()
+            }
+            onResult(result)
         }
     }
 }
@@ -67,6 +87,9 @@ fun SettingsScreen(
     var baseUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
     var loaded by remember { mutableStateOf(false) }
+    var syncing by remember { mutableStateOf(false) }
+    var syncStatus by remember { mutableStateOf<String?>(null) }
+    var syncFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val (b, k) = viewModel.load()
@@ -102,11 +125,6 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
-            Text(
-                "Use http://10.0.2.2:3000 for the emulator. No trailing slash.",
-                modifier = Modifier.padding(top = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-            )
 
             OutlinedTextField(
                 value = apiKey,
@@ -118,11 +136,45 @@ fun SettingsScreen(
                 singleLine = true,
             )
 
-            Button(
-                onClick = { viewModel.save(baseUrl, apiKey, onBack) },
+            Row(
                 modifier = Modifier.padding(top = 24.dp),
-                enabled = loaded,
-            ) { Text("Save") }
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Button(
+                    onClick = { viewModel.save(baseUrl, apiKey, onBack) },
+                    enabled = loaded,
+                ) { Text("Save") }
+
+                OutlinedButton(
+                    onClick = {
+                        syncing = true
+                        syncStatus = null
+                        viewModel.sync(baseUrl, apiKey) { result ->
+                            syncing = false
+                            result
+                                .onSuccess {
+                                    syncFailed = false
+                                    syncStatus = "Synced $it tags & locations"
+                                }
+                                .onFailure {
+                                    syncFailed = true
+                                    syncStatus = it.message ?: "Sync failed"
+                                }
+                        }
+                    },
+                    enabled = loaded && !syncing,
+                ) { Text(if (syncing) "Syncing…" else "Sync") }
+            }
+
+            syncStatus?.let {
+                Text(
+                    it,
+                    color = if (syncFailed) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
 
             OutlinedButton(
                 onClick = onOpenSyncDebug,
