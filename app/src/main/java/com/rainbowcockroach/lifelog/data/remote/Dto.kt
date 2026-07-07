@@ -40,6 +40,15 @@ data class TagDto(
     val type: String = "tag",
     /** ISO-8601 timestamp from the server; null if the tag has never been used in an entry. */
     val lastUsed: String? = null,
+    /** Server `Tag.config` JSON — carries the tag's display colors (hex strings). */
+    val config: TagConfig? = null,
+)
+
+/** Subset of the server's `Tag.config` JSON that the app renders. Extra keys are ignored. */
+@Serializable
+data class TagConfig(
+    val backgroundColor: String? = null,
+    val textColor: String? = null,
 )
 
 @Serializable

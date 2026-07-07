@@ -30,3 +30,16 @@ val NightAccent = Color(0xFFC7A66B)     // warm candlelit tan
 val NightAccentOn = Color(0xFF2A241E)
 val NightOutline = Color(0xFF4C443A)
 val NightRed = Color(0xFFE08585)
+
+/**
+ * Parses a server-supplied hex color ("#RRGGBB" / "#AARRGGBB" / a named color) into a Compose
+ * [Color], or null if it's blank/unparseable. Used to render tag chips in the tag's own colors.
+ */
+fun parseColorOrNull(value: String?): Color? {
+    if (value.isNullOrBlank()) return null
+    return try {
+        Color(android.graphics.Color.parseColor(value.trim()))
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}

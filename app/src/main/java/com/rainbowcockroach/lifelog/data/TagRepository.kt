@@ -44,6 +44,8 @@ class TagRepository(
                 searchHint = dto.searchHint,
                 type = if (dto.type.isBlank()) "tag" else dto.type,
                 lastUsedMs = merged,
+                backgroundColor = dto.config?.backgroundColor,
+                textColor = dto.config?.textColor,
             )
         }
         dao.upsertAll(mapped)
@@ -66,6 +68,8 @@ class TagRepository(
             searchHint = dto.searchHint,
             type = if (dto.type.isBlank()) type else dto.type,
             lastUsedMs = System.currentTimeMillis(),
+            backgroundColor = dto.config?.backgroundColor,
+            textColor = dto.config?.textColor,
         )
         dao.upsert(cached)
         return cached
