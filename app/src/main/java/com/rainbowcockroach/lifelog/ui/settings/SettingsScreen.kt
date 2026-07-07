@@ -43,7 +43,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rainbowcockroach.lifelog.BuildConfig
 import com.rainbowcockroach.lifelog.LifeLogApp
-import com.rainbowcockroach.lifelog.update.ApkInstaller
 import com.rainbowcockroach.lifelog.update.UpdateChecker
 import com.rainbowcockroach.lifelog.update.UpdateInfo
 import com.rainbowcockroach.lifelog.ui.theme.ThemeMode
@@ -239,7 +238,6 @@ private fun UpdateSection() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val checker = remember { UpdateChecker() }
-    val installer = remember { ApkInstaller(context) }
 
     var checking by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -307,28 +305,27 @@ private fun UpdateSection() {
                             modifier = Modifier.padding(top = 12.dp),
                         )
                     }
-                    if (u.isNewer && u.apkUrl == null) {
+                    if (u.isNewer) {
                         Text(
-                            "No .apk asset on the latest release.",
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 8.dp),
+                            "Tap Download to open the release page in your browser, " +
+                                "then download and install the APK from there.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 12.dp),
                         )
                     }
                 }
             },
             confirmButton = {
-                if (u.isNewer && u.apkUrl != null) {
+                if (u.isNewer && u.releaseUrl != null) {
                     TextButton(onClick = {
                         showDialog = false
-                        if (!installer.hasInstallPermission()) {
-                            context.startActivity(
-                                installer.installPermissionIntent()
-                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
-                        } else {
-                            installer.downloadAndInstall(u.apkUrl, u.latestTag)
-                        }
-                    }) { Text("Download & install") }
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(u.releaseUrl),
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }) { Text("Download") }
                 } else {
                     TextButton(onClick = { showDialog = false }) { Text("OK") }
                 }
