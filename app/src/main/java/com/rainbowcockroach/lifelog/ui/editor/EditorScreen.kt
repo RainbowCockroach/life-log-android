@@ -28,7 +28,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
+import com.rainbowcockroach.lifelog.ui.theme.parseColorOrNull
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -312,6 +314,8 @@ private fun EditorContent(
                     )
                 }
                 state.tags.forEach { tag ->
+                    val tagBg = parseColorOrNull(tag.backgroundColor)
+                    val tagFg = parseColorOrNull(tag.textColor)
                     InputChip(
                         selected = true,
                         onClick = { onRemoveTag(tag) },
@@ -319,6 +323,16 @@ private fun EditorContent(
                         trailingIcon = {
                             Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
                         },
+                        // Render each tag in its own server-defined colors when present,
+                        // otherwise fall back to the theme's paper chip.
+                        colors = if (tagBg != null || tagFg != null) {
+                            val content = tagFg ?: MaterialTheme.colorScheme.onSecondaryContainer
+                            InputChipDefaults.inputChipColors(
+                                selectedContainerColor = tagBg ?: MaterialTheme.colorScheme.secondaryContainer,
+                                selectedLabelColor = content,
+                                selectedTrailingIconColor = content,
+                            )
+                        } else InputChipDefaults.inputChipColors(),
                     )
                 }
             }

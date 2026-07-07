@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PendingEntry::class, CachedTag::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -70,6 +70,14 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE pending_entries")
                 db.execSQL("ALTER TABLE pending_entries_new RENAME TO pending_entries")
+            }
+        }
+
+        // Adds per-tag display colors (mirrors server `Tag.config.backgroundColor/textColor`).
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE cached_tags ADD COLUMN backgroundColor TEXT")
+                db.execSQL("ALTER TABLE cached_tags ADD COLUMN textColor TEXT")
             }
         }
     }

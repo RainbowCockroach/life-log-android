@@ -17,6 +17,7 @@ import com.rainbowcockroach.lifelog.ui.editor.EditorScreen
 import com.rainbowcockroach.lifelog.ui.settings.SettingsScreen
 import com.rainbowcockroach.lifelog.ui.theme.LifeLogTheme
 import com.rainbowcockroach.lifelog.ui.theme.ThemeMode
+import com.rainbowcockroach.lifelog.update.LaunchUpdateCheck
 
 private object Routes {
     const val EDITOR = "editor"
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity() {
                             SyncDebugScreen(onBack = { nav.popBackStack() })
                         }
                     }
+                    LaunchUpdateCheck()
                 }
             }
         }

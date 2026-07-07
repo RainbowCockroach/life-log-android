@@ -18,4 +18,7 @@ data class CachedTag(
     /** "tag" or "location" — mirrors server `Tag.type`. */
     val type: String,
     val lastUsedMs: Long? = null,
+    /** Hex colors from the server `Tag.config` (e.g. "#RRGGBB"); null when the tag has none. */
+    val backgroundColor: String? = null,
+    val textColor: String? = null,
 )
