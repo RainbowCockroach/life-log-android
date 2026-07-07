@@ -54,7 +54,7 @@ class SettingsStore(private val context: Context) {
         private val KEY_API_KEY = stringPreferencesKey("api_key")
         private val KEY_LAST_LOCATION_ID = longPreferencesKey("last_used_location_id")
 
-        /** Emulator host loopback. Replace via Settings screen for real device or prod. */
-        const val DEFAULT_BASE_URL = "http://10.0.2.2:3000"
+        /** Blank until the user configures a server via the Settings screen. */
+        const val DEFAULT_BASE_URL = ""
     }
 }

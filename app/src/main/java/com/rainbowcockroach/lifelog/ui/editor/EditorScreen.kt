@@ -31,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -87,28 +86,13 @@ fun EditorScreen(
         pendingCameraUri = null
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Life Log") },
-                actions = {
-                    if (pendingCount > 0) {
-                        BadgedBox(badge = { Badge { Text(pendingCount.toString()) } }) {
-                            IconButton(onClick = { viewModel.forceSyncNow() }) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Sync now")
-                            }
-                        }
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    Scaffold { padding ->
         EditorContent(
             padding = padding,
             state = state,
+            pendingCount = pendingCount,
+            onForceSync = viewModel::forceSyncNow,
+            onOpenSettings = onOpenSettings,
             onContentChange = viewModel::onContentChange,
             onPickImage = { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             onTakePhoto = {
@@ -170,6 +154,9 @@ fun EditorScreen(
 private fun EditorContent(
     padding: PaddingValues,
     state: EditorUiState,
+    pendingCount: Int,
+    onForceSync: () -> Unit,
+    onOpenSettings: () -> Unit,
     onContentChange: (String) -> Unit,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
@@ -194,42 +181,58 @@ private fun EditorContent(
             .padding(padding)
             .padding(12.dp)
     ) {
-        // Location (required) + tags toggles, single row.
-        FlowRow(
+        // Location (required) + tags toggles, moved up into the space the title used to occupy.
+        // Sync + settings actions sit on the trailing edge.
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            AssistChip(
-                onClick = onOpenLocationPicker,
-                leadingIcon = {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
-                },
-                label = { Text(state.location?.name ?: "Location *") },
-                colors = if (state.location == null) {
-                    AssistChipDefaults.assistChipColors(
-                        labelColor = MaterialTheme.colorScheme.error,
-                        leadingIconContentColor = MaterialTheme.colorScheme.error,
-                    )
-                } else AssistChipDefaults.assistChipColors(),
-            )
-            AssistChip(
-                onClick = onOpenTagPicker,
-                label = {
-                    val count = state.tags.size
-                    Text(if (count == 0) "Tags" else "Tags · $count")
-                },
-            )
-            state.tags.forEach { tag ->
-                InputChip(
-                    selected = true,
-                    onClick = { onRemoveTag(tag) },
-                    label = { Text(tag.name) },
-                    trailingIcon = {
-                        Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
+            FlowRow(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AssistChip(
+                    onClick = onOpenLocationPicker,
+                    leadingIcon = {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                    label = { Text(state.location?.name ?: "Location *") },
+                    colors = if (state.location == null) {
+                        AssistChipDefaults.assistChipColors(
+                            labelColor = MaterialTheme.colorScheme.error,
+                            leadingIconContentColor = MaterialTheme.colorScheme.error,
+                        )
+                    } else AssistChipDefaults.assistChipColors(),
+                )
+                AssistChip(
+                    onClick = onOpenTagPicker,
+                    label = {
+                        val count = state.tags.size
+                        Text(if (count == 0) "Tags" else "Tags · $count")
                     },
                 )
+                state.tags.forEach { tag ->
+                    InputChip(
+                        selected = true,
+                        onClick = { onRemoveTag(tag) },
+                        label = { Text(tag.name) },
+                        trailingIcon = {
+                            Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
+                        },
+                    )
+                }
+            }
+            if (pendingCount > 0) {
+                BadgedBox(badge = { Badge { Text(pendingCount.toString()) } }) {
+                    IconButton(onClick = onForceSync) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Sync now")
+                    }
+                }
+            }
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings")
             }
         }
 
@@ -287,10 +290,12 @@ private fun EditorContent(
                 Icon(Icons.Default.Add, contentDescription = "Add image")
             }
             TextButton(onClick = onTakePhoto) {
-                Text("📷 Photo")
+                Icon(PhotoCameraIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Photo", modifier = Modifier.padding(start = 6.dp))
             }
             TextButton(onClick = onAddLink) {
-                Text("🔗 Link")
+                Icon(LinkIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Link", modifier = Modifier.padding(start = 6.dp))
             }
             Box(modifier = Modifier.weight(1f))
             if (state.savedFlash) {
