@@ -47,17 +47,22 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk \
              artifacts/life-log-latest.apk
 
-      - name: Delete previous latest release
+      - name: Delete previous releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          # Keep exactly one rolling release: drop every existing release/tag
+          # (the old "latest" tag and any prior "build-N") before creating this one.
+          gh release list --repo "$GITHUB_REPOSITORY" --json tagName -q '.[].tagName' \
+            | while read -r tag; do
+                [ -n "$tag" ] && gh release delete "$tag" --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+              done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: Latest Build
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
           body: |
             Automated signed release build from commit ${{ github.sha }}.
             Branch: `${{ github.ref_name }}`
