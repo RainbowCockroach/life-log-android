@@ -22,6 +22,8 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,9 +33,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
@@ -53,6 +59,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +76,12 @@ fun EditorScreen(
     var showLinkDialog by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showTagPicker by remember { mutableStateOf(false) }
+
+    // Two-step date+time override (mirrors the web `datetime-local` input). The date dialog
+    // hands off the picked day to the time dialog, which combines them into a local-zone epoch.
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var pickedDateUtcMillis by remember { mutableStateOf<Long?>(null) }
 
     val context = LocalContext.current
 
@@ -107,7 +124,63 @@ fun EditorScreen(
             onOpenLocationPicker = { showLocationPicker = true },
             onOpenTagPicker = { showTagPicker = true },
             onRemoveTag = viewModel::removeTag,
+            onOpenDatePicker = { showDatePicker = true },
+            onClearDateTime = { viewModel.setDateTime(null) },
         )
+
+        if (showDatePicker) {
+            val dateState = rememberDatePickerState(
+                initialSelectedDateMillis = state.customDateTime ?: System.currentTimeMillis(),
+            )
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pickedDateUtcMillis = dateState.selectedDateMillis
+                            showDatePicker = false
+                            if (pickedDateUtcMillis != null) showTimePicker = true
+                        },
+                        enabled = dateState.selectedDateMillis != null,
+                    ) { Text("Next") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                },
+            ) {
+                DatePicker(state = dateState)
+            }
+        }
+
+        if (showTimePicker) {
+            val existing = state.customDateTime?.let {
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
+            }
+            val timeState = rememberTimePickerState(
+                initialHour = existing?.hour ?: 12,
+                initialMinute = existing?.minute ?: 0,
+                is24Hour = true,
+            )
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showTimePicker = false },
+                title = { Text("Time") },
+                text = { TimePicker(state = timeState) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val dateMillis = pickedDateUtcMillis
+                        if (dateMillis != null) {
+                            viewModel.setDateTime(
+                                combineDateAndTime(dateMillis, timeState.hour, timeState.minute)
+                            )
+                        }
+                        showTimePicker = false
+                    }) { Text("Set") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                },
+            )
+        }
 
         if (showLinkDialog) {
             LinkDialog(
@@ -167,6 +240,8 @@ private fun EditorContent(
     onOpenLocationPicker: () -> Unit,
     onOpenTagPicker: () -> Unit,
     onRemoveTag: (com.rainbowcockroach.lifelog.data.local.CachedTag) -> Unit,
+    onOpenDatePicker: () -> Unit,
+    onClearDateTime: () -> Unit,
 ) {
     LaunchedEffect(state.savedFlash) {
         if (state.savedFlash) {
@@ -213,6 +288,29 @@ private fun EditorContent(
                         Text(if (count == 0) "Tags" else "Tags · $count")
                     },
                 )
+                if (state.customDateTime == null) {
+                    AssistChip(
+                        onClick = onOpenDatePicker,
+                        leadingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text("Date") },
+                    )
+                } else {
+                    InputChip(
+                        selected = true,
+                        onClick = onOpenDatePicker,
+                        leadingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text(formatDateTimeLabel(state.customDateTime)) },
+                        trailingIcon = {
+                            IconButton(onClick = onClearDateTime, modifier = Modifier.size(18.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear date", modifier = Modifier.size(14.dp))
+                            }
+                        },
+                    )
+                }
                 state.tags.forEach { tag ->
                     InputChip(
                         selected = true,
@@ -324,6 +422,25 @@ private fun createCameraImageUri(context: android.content.Context): android.net.
     val file = File(dir, "capture_${System.currentTimeMillis()}.jpg")
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
+
+/**
+ * The Material date picker reports the selected day as UTC midnight; combine that calendar day
+ * with the picked wall-clock time in the device's local zone so the entry lands on the intended
+ * day/time regardless of timezone (this epoch becomes both the entry id and createdAt).
+ */
+private fun combineDateAndTime(dateUtcMillis: Long, hour: Int, minute: Int): Long {
+    val localDate = Instant.ofEpochMilli(dateUtcMillis).atZone(ZoneOffset.UTC).toLocalDate()
+    return localDate.atTime(hour, minute)
+        .atZone(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+}
+
+private val dateTimeLabelFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+
+private fun formatDateTimeLabel(epochMs: Long): String =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(dateTimeLabelFormatter)
 
 @Composable
 private fun LinkDialog(

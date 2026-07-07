@@ -25,6 +25,8 @@ data class EditorUiState(
     val isSaving: Boolean = false,
     val savedFlash: Boolean = false,
     val errorMessage: String? = null,
+    /** User-picked entry timestamp; null means "use now() at save time". */
+    val customDateTime: Long? = null,
 )
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
@@ -66,6 +68,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeTag(tag: CachedTag) {
         _state.update { it.copy(tags = it.tags.filterNot { t -> t.id == tag.id }) }
+    }
+
+    /** Override the entry's timestamp; pass null to fall back to now() at save time. */
+    fun setDateTime(epochMs: Long?) {
+        _state.update { it.copy(customDateTime = epochMs) }
     }
 
     suspend fun searchTags(query: String, type: String): List<CachedTag> =
@@ -123,6 +130,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 mediaLocalPaths = current.mediaPaths,
                 locationId = location.id,
                 tagIds = current.tags.map { it.id },
+                createdAt = current.customDateTime ?: System.currentTimeMillis(),
             )
             settings.setLastUsedLocationId(location.id)
             tagRepository.bumpLastUsed(listOf(location.id) + current.tags.map { it.id })

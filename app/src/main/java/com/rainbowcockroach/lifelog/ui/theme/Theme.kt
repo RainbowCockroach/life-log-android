@@ -1,53 +1,88 @@
 package com.rainbowcockroach.lifelog.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+/** User-selectable theme preference, persisted in [SettingsStore]. */
+enum class ThemeMode {
+    SYSTEM, LIGHT, DARK;
+
+    companion object {
+        fun fromName(name: String?): ThemeMode =
+            entries.firstOrNull { it.name == name } ?: SYSTEM
+    }
+}
+
+private val NovelLightColors = lightColorScheme(
+    primary = InkBrown,
+    onPrimary = InkBrownOn,
+    secondary = PaperInkMuted,
+    onSecondary = InkBrownOn,
+    tertiary = InkBrown,
+    onTertiary = InkBrownOn,
+    background = PaperBackground,
+    onBackground = PaperInk,
+    surface = PaperBackground,
+    onSurface = PaperInk,
+    surfaceVariant = PaperSurfaceVariant,
+    onSurfaceVariant = PaperInkMuted,
+    surfaceContainer = PaperSurface,
+    surfaceContainerHigh = PaperSurface,
+    surfaceContainerHighest = PaperSurfaceVariant,
+    outline = PaperOutline,
+    outlineVariant = PaperOutline,
+    error = NovelRed,
+    onError = InkBrownOn,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val NovelDarkColors = darkColorScheme(
+    primary = NightAccent,
+    onPrimary = NightAccentOn,
+    secondary = NightInkMuted,
+    onSecondary = NightAccentOn,
+    tertiary = NightAccent,
+    onTertiary = NightAccentOn,
+    background = NightBackground,
+    onBackground = NightInk,
+    surface = NightBackground,
+    onSurface = NightInk,
+    surfaceVariant = NightSurfaceVariant,
+    onSurfaceVariant = NightInkMuted,
+    surfaceContainer = NightSurface,
+    surfaceContainerHigh = NightSurfaceVariant,
+    surfaceContainerHighest = NightSurfaceVariant,
+    outline = NightOutline,
+    outlineVariant = NightOutline,
+    error = NightRed,
+    onError = NightAccentOn,
 )
 
 @Composable
 fun LifeLogTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    val colorScheme = if (darkTheme) NovelDarkColors else NovelLightColors
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightStatusBars = !darkTheme
+        }
     }
 
     MaterialTheme(

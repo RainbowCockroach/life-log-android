@@ -21,11 +21,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,12 +46,19 @@ import com.rainbowcockroach.lifelog.LifeLogApp
 import com.rainbowcockroach.lifelog.update.ApkInstaller
 import com.rainbowcockroach.lifelog.update.UpdateChecker
 import com.rainbowcockroach.lifelog.update.UpdateInfo
+import com.rainbowcockroach.lifelog.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val container = (app as LifeLogApp).container
     private val settings = container.settings
     private val tagRepository = container.tagRepository
+
+    val themeMode = settings.themeMode
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { settings.setThemeMode(mode) }
+    }
 
     suspend fun load(): Pair<String, String> =
         settings.currentBaseUrl() to settings.currentApiKey()
@@ -182,7 +193,43 @@ fun SettingsScreen(
             ) { Text("Sync debug") }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
+            ThemeSection(viewModel)
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
             UpdateSection()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSection(viewModel: SettingsViewModel) {
+    val current by viewModel.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+
+    Text("Appearance", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Novel theme — paper by day, candlelight by night.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+
+    val options = listOf(
+        ThemeMode.SYSTEM to "Auto",
+        ThemeMode.LIGHT to "Light",
+        ThemeMode.DARK to "Dark",
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+    ) {
+        options.forEachIndexed { index, (mode, label) ->
+            SegmentedButton(
+                selected = current == mode,
+                onClick = { viewModel.setThemeMode(mode) },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+            ) { Text(label) }
         }
     }
 }

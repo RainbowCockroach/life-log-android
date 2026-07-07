@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -14,6 +16,7 @@ import com.rainbowcockroach.lifelog.ui.debug.SyncDebugScreen
 import com.rainbowcockroach.lifelog.ui.editor.EditorScreen
 import com.rainbowcockroach.lifelog.ui.settings.SettingsScreen
 import com.rainbowcockroach.lifelog.ui.theme.LifeLogTheme
+import com.rainbowcockroach.lifelog.ui.theme.ThemeMode
 
 private object Routes {
     const val EDITOR = "editor"
@@ -25,8 +28,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val settings = (application as LifeLogApp).container.settings
         setContent {
-            LifeLogTheme {
+            val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            LifeLogTheme(themeMode = themeMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val nav = rememberNavController()
                     NavHost(navController = nav, startDestination = Routes.EDITOR) {
