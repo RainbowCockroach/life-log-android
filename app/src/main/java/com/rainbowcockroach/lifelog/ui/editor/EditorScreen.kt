@@ -398,8 +398,9 @@ private fun EditorContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onPickImage) {
-                Icon(Icons.Default.Add, contentDescription = "Add image")
+            TextButton(onClick = onPickImage) {
+                Icon(ImageIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Gallery", modifier = Modifier.padding(start = 6.dp))
             }
             TextButton(onClick = onTakePhoto) {
                 Icon(PhotoCameraIcon, contentDescription = null, modifier = Modifier.size(18.dp))
