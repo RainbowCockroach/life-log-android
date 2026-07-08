@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -79,6 +81,11 @@ fun EditorScreen(
     var showLocationPicker by remember { mutableStateOf(false) }
     var showTagPicker by remember { mutableStateOf(false) }
 
+    // Collapsible metadata sections, mirroring the web editor's Tags/Date toggles. Both start
+    // collapsed; the always-visible Location row lives outside these (it's required).
+    var showTagsSection by remember { mutableStateOf(false) }
+    var showDateSection by remember { mutableStateOf(false) }
+
     // Two-step date+time override (mirrors the web `datetime-local` input). The date dialog
     // hands off the picked day to the time dialog, which combines them into a local-zone epoch.
     var showDatePicker by remember { mutableStateOf(false) }
@@ -128,6 +135,10 @@ fun EditorScreen(
             onRemoveTag = viewModel::removeTag,
             onOpenDatePicker = { showDatePicker = true },
             onClearDateTime = { viewModel.setDateTime(null) },
+            showTagsSection = showTagsSection,
+            onToggleTagsSection = { showTagsSection = !showTagsSection },
+            showDateSection = showDateSection,
+            onToggleDateSection = { showDateSection = !showDateSection },
         )
 
         if (showDatePicker) {
@@ -244,6 +255,10 @@ private fun EditorContent(
     onRemoveTag: (com.rainbowcockroach.lifelog.data.local.CachedTag) -> Unit,
     onOpenDatePicker: () -> Unit,
     onClearDateTime: () -> Unit,
+    showTagsSection: Boolean,
+    onToggleTagsSection: () -> Unit,
+    showDateSection: Boolean,
+    onToggleDateSection: () -> Unit,
 ) {
     LaunchedEffect(state.savedFlash) {
         if (state.savedFlash) {
@@ -258,61 +273,64 @@ private fun EditorContent(
             .padding(padding)
             .padding(12.dp)
     ) {
-        // Location (required) + tags toggles, moved up into the space the title used to occupy.
-        // Sync + settings actions sit on the trailing edge.
+        // Top toolbar — collapsible Tags/Date toggles on the left (mirroring the web editor's
+        // toolbar), with sync + settings actions pinned to the trailing edge.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            FilterChip(
+                selected = showTagsSection,
+                onClick = onToggleTagsSection,
+                leadingIcon = {
+                    Icon(TagIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                },
+                label = {
+                    val count = state.tags.size
+                    Text(if (count == 0) "Tags" else "Tags · $count")
+                },
+            )
+            FilterChip(
+                selected = showDateSection,
+                onClick = onToggleDateSection,
+                leadingIcon = {
+                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                },
+                label = { Text("Date") },
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (pendingCount > 0) {
+                BadgedBox(badge = { Badge { Text(pendingCount.toString()) } }) {
+                    IconButton(onClick = onForceSync) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Sync now")
+                    }
+                }
+            }
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings")
+            }
+        }
+
+        // Tags section — revealed by the Tags toggle. "Add" opens the picker; selected tags
+        // render as removable colored chips.
+        if (showTagsSection) {
             FlowRow(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 AssistChip(
-                    onClick = onOpenLocationPicker,
-                    leadingIcon = {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
-                    },
-                    label = { Text(state.location?.name ?: "Location *") },
-                    colors = if (state.location == null) {
-                        AssistChipDefaults.assistChipColors(
-                            labelColor = MaterialTheme.colorScheme.error,
-                            leadingIconContentColor = MaterialTheme.colorScheme.error,
-                        )
-                    } else AssistChipDefaults.assistChipColors(),
-                )
-                AssistChip(
                     onClick = onOpenTagPicker,
-                    label = {
-                        val count = state.tags.size
-                        Text(if (count == 0) "Tags" else "Tags · $count")
+                    leadingIcon = {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     },
+                    label = { Text("Add") },
                 )
-                if (state.customDateTime == null) {
-                    AssistChip(
-                        onClick = onOpenDatePicker,
-                        leadingIcon = {
-                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        label = { Text("Date") },
-                    )
-                } else {
-                    InputChip(
-                        selected = true,
-                        onClick = onOpenDatePicker,
-                        leadingIcon = {
-                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        label = { Text(formatDateTimeLabel(state.customDateTime)) },
-                        trailingIcon = {
-                            IconButton(onClick = onClearDateTime, modifier = Modifier.size(18.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear date", modifier = Modifier.size(14.dp))
-                            }
-                        },
-                    )
-                }
                 state.tags.forEach { tag ->
                     val tagBg = parseColorOrNull(tag.backgroundColor)
                     val tagFg = parseColorOrNull(tag.textColor)
@@ -336,16 +354,64 @@ private fun EditorContent(
                     )
                 }
             }
-            if (pendingCount > 0) {
-                BadgedBox(badge = { Badge { Text(pendingCount.toString()) } }) {
-                    IconButton(onClick = onForceSync) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Sync now")
-                    }
+        }
+
+        // Date section — revealed by the Date toggle. Empty state offers to set a date/time;
+        // once set, the chip shows the value with a clear affordance.
+        if (showDateSection) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (state.customDateTime == null) {
+                    AssistChip(
+                        onClick = onOpenDatePicker,
+                        leadingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text("Set date & time") },
+                    )
+                } else {
+                    InputChip(
+                        selected = true,
+                        onClick = onOpenDatePicker,
+                        leadingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text(formatDateTimeLabel(state.customDateTime)) },
+                        trailingIcon = {
+                            IconButton(onClick = onClearDateTime, modifier = Modifier.size(18.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear date", modifier = Modifier.size(14.dp))
+                            }
+                        },
+                    )
                 }
             }
-            IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings")
-            }
+        }
+
+        // Location (required) — always visible, like the web editor's non-collapsible location row.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AssistChip(
+                onClick = onOpenLocationPicker,
+                leadingIcon = {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+                label = { Text(state.location?.name ?: "Location *") },
+                colors = if (state.location == null) {
+                    AssistChipDefaults.assistChipColors(
+                        labelColor = MaterialTheme.colorScheme.error,
+                        leadingIconContentColor = MaterialTheme.colorScheme.error,
+                    )
+                } else AssistChipDefaults.assistChipColors(),
+            )
         }
 
         if (state.errorMessage != null) {
@@ -398,17 +464,15 @@ private fun EditorContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onPickImage) {
-                Icon(ImageIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Gallery", modifier = Modifier.padding(start = 6.dp))
+            // Insert actions are icon-only (like the web editor's action bar); Save keeps its label.
+            IconButton(onClick = onPickImage) {
+                Icon(ImageIcon, contentDescription = "Add image", modifier = Modifier.size(22.dp))
             }
-            TextButton(onClick = onTakePhoto) {
-                Icon(PhotoCameraIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Photo", modifier = Modifier.padding(start = 6.dp))
+            IconButton(onClick = onTakePhoto) {
+                Icon(PhotoCameraIcon, contentDescription = "Take photo", modifier = Modifier.size(22.dp))
             }
-            TextButton(onClick = onAddLink) {
-                Icon(LinkIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Link", modifier = Modifier.padding(start = 6.dp))
+            IconButton(onClick = onAddLink) {
+                Icon(LinkIcon, contentDescription = "Insert link", modifier = Modifier.size(22.dp))
             }
             Box(modifier = Modifier.weight(1f))
             if (state.savedFlash) {
