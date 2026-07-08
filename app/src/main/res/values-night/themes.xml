@@ -2,6 +2,6 @@
 <resources>
 
     <style name="Theme.LifeLog" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/novel_night</item>
+        <item name="android:windowBackground">@color/classic_night</item>
     </style>
 </resources>

@@ -8,7 +8,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Novel theme window backgrounds (avoids a flash before Compose paints). -->
-    <color name="novel_paper">#FFF6EFD9</color>
-    <color name="novel_night">#FF1E1A17</color>
+    <!-- Classic theme window backgrounds (avoids a flash before Compose paints).
+         Match color-background in life-log-web classic.ts (light #ffffff, dark #0d1117). -->
+    <color name="classic_paper">#FFFFFFFF</color>
+    <color name="classic_night">#FF0D1117</color>
 </resources>
