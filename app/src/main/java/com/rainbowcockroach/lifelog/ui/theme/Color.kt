@@ -3,36 +3,33 @@ package com.rainbowcockroach.lifelog.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * "Novel" palette — a book-on-paper look inspired by the Ghostty/iTerm2 "Novel" theme
- * (background #dfdbc3, ink #3b2322). The light scheme is aged cream paper with sepia ink;
- * the dark scheme is a warm "night reading" variant (dark cocoa paper, warm cream ink)
- * rather than a cold black, so it still reads like a printed page after dark.
+ * "Classic" palette — a 1:1 port of the web app's Classic theme
+ * (life-log-web/src/theming/themes/classic.ts). White paper, black ink and a
+ * blue accent by day; GitHub-style warm-neutral dark by night. Keep these hex
+ * values in sync with classic.ts — they are the single source of truth.
  */
 
-// --- Light (paper) -------------------------------------------------------------
-// A light, warm sepia tuned for long-form reading comfort — sitting between Kindle's
-// #FBF0D9 and iBooks' #F8F1E3, kept a hair more aged so it still reads as the Novel theme
-// rather than a darker raw-linen beige.
-val PaperBackground = Color(0xFFF6EFD9) // warm cream page
-val PaperSurface = Color(0xFFFCF6E6)    // a shade lighter for cards/sheets/toolbars
-val PaperSurfaceVariant = Color(0xFFEBE2C8) // subtle fills: chips, selected date
-val PaperInk = Color(0xFF3B2322)        // dark sepia-brown — the Novel foreground
-val PaperInkMuted = Color(0xFF6E5A4E)   // secondary text / captions
-val InkBrown = Color(0xFF6F4E37)        // coffee-brown accent (buttons, cursor, links)
-val InkBrownOn = Color(0xFFFCF6E6)      // text/icons drawn on InkBrown
-val PaperOutline = Color(0xFFC8BC9C)    // hairlines & borders — soft warm grey
-val NovelRed = Color(0xFFCC0000)        // Novel palette red — errors
+// --- Light --------------------------------------------------------------------
+val ClassicText = Color(0xFF000000)        // --color-text
+val ClassicTextMuted = Color(0xFF777676)   // --color-text-muted
+val ClassicTextFaint = Color(0xFFAAAAAA)   // --color-text-faint
+val ClassicAccent = Color(0xFF3B82F6)      // --color-accent
+val ClassicAccentOn = Color(0xFFFFFFFF)    // text/icons on the accent
+val ClassicBackground = Color(0xFFFFFFFF)  // --color-background / --color-paper
+val ClassicSurfaceVariant = Color(0xFFF2F2F2) // subtle fills: chips, selected rows
+val ClassicBorder = Color(0xFFCCCCCC)      // --color-border
+val ClassicError = Color(0xFFDC2626)       // --color-error
 
-// --- Dark (night reading) ------------------------------------------------------
-val NightBackground = Color(0xFF1E1A17) // deep warm cocoa
-val NightSurface = Color(0xFF272220)
-val NightSurfaceVariant = Color(0xFF342D28)
-val NightInk = Color(0xFFDCD5C1)        // warm cream ink
-val NightInkMuted = Color(0xFFA89A85)
-val NightAccent = Color(0xFFC7A66B)     // warm candlelit tan
-val NightAccentOn = Color(0xFF2A241E)
-val NightOutline = Color(0xFF4C443A)
-val NightRed = Color(0xFFE08585)
+// --- Dark (GitHub-style) ------------------------------------------------------
+val ClassicDarkText = Color(0xFFE6EDF3)
+val ClassicDarkTextMuted = Color(0xFF8B949E)
+val ClassicDarkTextFaint = Color(0xFF656D76)
+val ClassicDarkAccent = Color(0xFF58A6FF)
+val ClassicDarkAccentOn = Color(0xFF0D1117)
+val ClassicDarkBackground = Color(0xFF0D1117) // --color-background / --color-paper
+val ClassicDarkSurfaceVariant = Color(0xFF161B22) // subtle fills a hair above bg
+val ClassicDarkBorder = Color(0xFF30363D)
+val ClassicDarkError = Color(0xFFF85149)
 
 /**
  * Parses a server-supplied hex color ("#RRGGBB" / "#AARRGGBB" / a named color) into a Compose

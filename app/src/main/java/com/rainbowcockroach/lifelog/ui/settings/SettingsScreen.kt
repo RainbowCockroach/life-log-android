@@ -207,7 +207,7 @@ private fun ThemeSection(viewModel: SettingsViewModel) {
 
     Text("Appearance", style = MaterialTheme.typography.titleMedium)
     Text(
-        "Novel theme — paper by day, candlelight by night.",
+        "Classic theme — white paper by day, GitHub dark by night. Matches the web app.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
