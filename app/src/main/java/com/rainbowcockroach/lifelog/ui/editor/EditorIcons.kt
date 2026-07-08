@@ -81,6 +81,34 @@ val ImageIcon: ImageVector by lazy {
     }
 }
 
+/** Material Design "local_offer" (tag) glyph — mirrors the web editor's Lucide `Tags` icon. */
+val TagIcon: ImageVector by lazy {
+    materialIcon("Tag") {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(21.41f, 11.58f)
+            lineToRelative(-9f, -9f)
+            curveToRelative(-0.36f, -0.36f, -0.86f, -0.58f, -1.41f, -0.58f)
+            horizontalLineTo(4f)
+            curveToRelative(-1.1f, 0f, -2f, 0.9f, -2f, 2f)
+            verticalLineToRelative(7f)
+            curveToRelative(0f, 0.55f, 0.22f, 1.05f, 0.59f, 1.42f)
+            lineToRelative(9f, 9f)
+            curveToRelative(0.36f, 0.36f, 0.86f, 0.58f, 1.41f, 0.58f)
+            reflectiveCurveToRelative(1.05f, -0.22f, 1.41f, -0.59f)
+            lineToRelative(7f, -7f)
+            curveToRelative(0.37f, -0.36f, 0.59f, -0.86f, 0.59f, -1.41f)
+            reflectiveCurveToRelative(-0.23f, -1.06f, -0.59f, -1.42f)
+            close()
+            moveTo(5.5f, 7f)
+            curveTo(4.67f, 7f, 4f, 6.33f, 4f, 5.5f)
+            reflectiveCurveTo(4.67f, 4f, 5.5f, 4f)
+            reflectiveCurveTo(7f, 4.67f, 7f, 5.5f)
+            reflectiveCurveTo(6.33f, 7f, 5.5f, 7f)
+            close()
+        }
+    }
+}
+
 /** Material Design "link" glyph. */
 val LinkIcon: ImageVector by lazy {
     materialIcon("Link") {
