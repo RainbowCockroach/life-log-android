@@ -3,17 +3,23 @@ package com.rainbowcockroach.lifelog.ui.editor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -56,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -112,7 +119,9 @@ fun EditorScreen(
         pendingCameraUri = null
     }
 
-    Scaffold { padding ->
+    // safeDrawing (unlike the Scaffold default) includes the IME, so the whole editor is
+    // inset above the keyboard instead of being covered by it.
+    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         EditorContent(
             padding = padding,
             state = state,
@@ -172,7 +181,8 @@ fun EditorScreen(
             val timeState = rememberTimePickerState(
                 initialHour = existing?.hour ?: 12,
                 initialMinute = existing?.minute ?: 0,
-                is24Hour = true,
+                // Follow the phone's "Use 24-hour format" setting rather than forcing either clock.
+                is24Hour = android.text.format.DateFormat.is24HourFormat(context),
             )
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showTimePicker = false },
@@ -267,228 +277,247 @@ private fun EditorContent(
         }
     }
 
-    Column(
+    // Metadata scrolls inside its own bounded slice of the screen, so however many tag chips
+    // wrap it can never squeeze the editor or push the action bar off-screen.
+    val metadataScrollState = rememberScrollState()
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
             .padding(12.dp)
     ) {
-        // Top toolbar — collapsible Tags/Date toggles on the left (mirroring the web editor's
-        // toolbar), with sync + settings actions pinned to the trailing edge.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FilterChip(
-                selected = showTagsSection,
-                onClick = onToggleTagsSection,
-                leadingIcon = {
-                    Icon(TagIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                },
-                label = {
-                    val count = state.tags.size
-                    Text(if (count == 0) "Tags" else "Tags · $count")
-                },
-            )
-            FilterChip(
-                selected = showDateSection,
-                onClick = onToggleDateSection,
-                leadingIcon = {
-                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
-                },
-                label = { Text("Date") },
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            if (pendingCount > 0) {
-                BadgedBox(badge = { Badge { Text(pendingCount.toString()) } }) {
-                    IconButton(onClick = onForceSync) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Sync now")
+        val metadataMaxHeight = maxHeight * METADATA_MAX_HEIGHT_FRACTION
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = metadataMaxHeight)
+                    .verticalScroll(metadataScrollState)
+            ) {
+                // Top toolbar — collapsible Tags/Date toggles on the left (mirroring the web editor's
+                // toolbar), with sync + settings actions pinned to the trailing edge.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilterChip(
+                        selected = showTagsSection,
+                        onClick = onToggleTagsSection,
+                        leadingIcon = {
+                            Icon(TagIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        label = {
+                            val count = state.tags.size
+                            Text(if (count == 0) "Tags" else "Tags · $count")
+                        },
+                    )
+                    FilterChip(
+                        selected = showDateSection,
+                        onClick = onToggleDateSection,
+                        leadingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        label = { Text("Date") },
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (pendingCount > 0) {
+                        BadgedBox(badge = { Badge { Text(pendingCount.toString()) } }) {
+                            IconButton(onClick = onForceSync) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Sync now")
+                            }
+                        }
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
-            }
-            IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings")
-            }
-        }
 
-        // Tags section — revealed by the Tags toggle. "Add" opens the picker; selected tags
-        // render as removable colored chips.
-        if (showTagsSection) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                AssistChip(
-                    onClick = onOpenTagPicker,
-                    leadingIcon = {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    },
-                    label = { Text("Add") },
-                )
-                state.tags.forEach { tag ->
-                    val tagBg = parseColorOrNull(tag.backgroundColor)
-                    val tagFg = parseColorOrNull(tag.textColor)
-                    InputChip(
-                        selected = true,
-                        onClick = { onRemoveTag(tag) },
-                        label = { Text(tag.name) },
-                        trailingIcon = {
-                            Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
-                        },
-                        // Render each tag in its own server-defined colors when present,
-                        // otherwise fall back to the theme's paper chip.
-                        colors = if (tagBg != null || tagFg != null) {
-                            val content = tagFg ?: MaterialTheme.colorScheme.onSecondaryContainer
-                            InputChipDefaults.inputChipColors(
-                                selectedContainerColor = tagBg ?: MaterialTheme.colorScheme.secondaryContainer,
-                                selectedLabelColor = content,
-                                selectedTrailingIconColor = content,
-                            )
-                        } else InputChipDefaults.inputChipColors(),
-                    )
-                }
-            }
-        }
-
-        // Date section — revealed by the Date toggle. Empty state offers to set a date/time;
-        // once set, the chip shows the value with a clear affordance.
-        if (showDateSection) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (state.customDateTime == null) {
-                    AssistChip(
-                        onClick = onOpenDatePicker,
-                        leadingIcon = {
-                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        label = { Text("Set date & time") },
-                    )
-                } else {
-                    InputChip(
-                        selected = true,
-                        onClick = onOpenDatePicker,
-                        leadingIcon = {
-                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        label = { Text(formatDateTimeLabel(state.customDateTime)) },
-                        trailingIcon = {
-                            IconButton(onClick = onClearDateTime, modifier = Modifier.size(18.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear date", modifier = Modifier.size(14.dp))
-                            }
-                        },
-                    )
-                }
-            }
-        }
-
-        // Location (required) — always visible, like the web editor's non-collapsible location row.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AssistChip(
-                onClick = onOpenLocationPicker,
-                leadingIcon = {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
-                },
-                label = { Text(state.location?.name ?: "Location *") },
-                colors = if (state.location == null) {
-                    AssistChipDefaults.assistChipColors(
-                        labelColor = MaterialTheme.colorScheme.error,
-                        leadingIconContentColor = MaterialTheme.colorScheme.error,
-                    )
-                } else AssistChipDefaults.assistChipColors(),
-            )
-        }
-
-        if (state.errorMessage != null) {
-            Text(
-                state.errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        OutlinedTextField(
-            value = state.content,
-            onValueChange = onContentChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            placeholder = { Text("Write your entry…") },
-            label = { Text("Markdown") },
-        )
-
-        if (state.mediaPaths.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(state.mediaPaths) { path ->
-                    Box {
-                        AsyncImage(
-                            model = File(path),
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp),
+                // Tags section — revealed by the Tags toggle. "Add" opens the picker; selected tags
+                // render as removable colored chips.
+                if (showTagsSection) {
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        AssistChip(
+                            onClick = onOpenTagPicker,
+                            leadingIcon = {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            label = { Text("Add") },
                         )
-                        IconButton(
-                            onClick = { onRemoveImage(path) },
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Remove")
+                        state.tags.forEach { tag ->
+                            val tagBg = parseColorOrNull(tag.backgroundColor)
+                            val tagFg = parseColorOrNull(tag.textColor)
+                            InputChip(
+                                selected = true,
+                                onClick = { onRemoveTag(tag) },
+                                label = { Text(tag.name) },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp))
+                                },
+                                // Render each tag in its own server-defined colors when present,
+                                // otherwise fall back to the theme's paper chip.
+                                colors = if (tagBg != null || tagFg != null) {
+                                    val content = tagFg ?: MaterialTheme.colorScheme.onSecondaryContainer
+                                    InputChipDefaults.inputChipColors(
+                                        selectedContainerColor = tagBg ?: MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedLabelColor = content,
+                                        selectedTrailingIconColor = content,
+                                    )
+                                } else InputChipDefaults.inputChipColors(),
+                            )
+                        }
+                    }
+                }
+
+                // Date section — revealed by the Date toggle. Empty state offers to set a date/time;
+                // once set, the chip shows the value with a clear affordance.
+                if (showDateSection) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (state.customDateTime == null) {
+                            AssistChip(
+                                onClick = onOpenDatePicker,
+                                leadingIcon = {
+                                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                label = { Text("Set date & time") },
+                            )
+                        } else {
+                            InputChip(
+                                selected = true,
+                                onClick = onOpenDatePicker,
+                                leadingIcon = {
+                                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                label = { Text(formatDateTimeLabel(state.customDateTime)) },
+                                trailingIcon = {
+                                    IconButton(onClick = onClearDateTime, modifier = Modifier.size(18.dp)) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear date", modifier = Modifier.size(14.dp))
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // Location (required) — always visible, like the web editor's non-collapsible location row.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AssistChip(
+                        onClick = onOpenLocationPicker,
+                        leadingIcon = {
+                            Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text(state.location?.name ?: "Location *") },
+                        colors = if (state.location == null) {
+                            AssistChipDefaults.assistChipColors(
+                                labelColor = MaterialTheme.colorScheme.error,
+                                leadingIconContentColor = MaterialTheme.colorScheme.error,
+                            )
+                        } else AssistChipDefaults.assistChipColors(),
+                    )
+                }
+
+                if (state.errorMessage != null) {
+                    Text(
+                        state.errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+            }
+
+            // Bounded height (rather than growing with the text) so the field scrolls internally
+            // and keeps the caret in view; the Scaffold's IME inset means "in view" is above the
+            // keyboard, not behind it.
+            OutlinedTextField(
+                value = state.content,
+                onValueChange = onContentChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                placeholder = { Text("Write your entry…") },
+                label = { Text("Markdown") },
+            )
+
+            if (state.mediaPaths.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(state.mediaPaths) { path ->
+                        Box {
+                            AsyncImage(
+                                model = File(path),
+                                contentDescription = null,
+                                modifier = Modifier.size(80.dp),
+                            )
+                            IconButton(
+                                onClick = { onRemoveImage(path) },
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Remove")
+                            }
                         }
                     }
                 }
             }
-        }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Insert actions are icon-only (like the web editor's action bar); Save keeps its label.
-            IconButton(onClick = onPickImage) {
-                Icon(ImageIcon, contentDescription = "Add image", modifier = Modifier.size(22.dp))
-            }
-            IconButton(onClick = onTakePhoto) {
-                Icon(PhotoCameraIcon, contentDescription = "Take photo", modifier = Modifier.size(22.dp))
-            }
-            IconButton(onClick = onAddLink) {
-                Icon(LinkIcon, contentDescription = "Insert link", modifier = Modifier.size(22.dp))
-            }
-            Box(modifier = Modifier.weight(1f))
-            if (state.savedFlash) {
-                Text("Queued ✓", modifier = Modifier.padding(end = 8.dp))
-            }
-            Button(onClick = onSave, enabled = !state.isSaving) {
-                if (state.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                } else {
-                    Icon(Icons.Default.Send, contentDescription = null)
-                    Text("Save", modifier = Modifier.padding(start = 6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Insert actions are icon-only (like the web editor's action bar); Save keeps its label.
+                IconButton(onClick = onPickImage) {
+                    Icon(ImageIcon, contentDescription = "Add image", modifier = Modifier.size(22.dp))
+                }
+                IconButton(onClick = onTakePhoto) {
+                    Icon(PhotoCameraIcon, contentDescription = "Take photo", modifier = Modifier.size(22.dp))
+                }
+                IconButton(onClick = onAddLink) {
+                    Icon(LinkIcon, contentDescription = "Insert link", modifier = Modifier.size(22.dp))
+                }
+                Box(modifier = Modifier.weight(1f))
+                if (state.savedFlash) {
+                    Text("Queued ✓", modifier = Modifier.padding(end = 8.dp))
+                }
+                Button(onClick = onSave, enabled = !state.isSaving) {
+                    if (state.isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    } else {
+                        Icon(Icons.Default.Send, contentDescription = null)
+                        Text("Save", modifier = Modifier.padding(start = 6.dp))
+                    }
                 }
             }
         }
     }
 }
+
+/** Share of the editor's height the metadata rows may occupy before they start scrolling. */
+private const val METADATA_MAX_HEIGHT_FRACTION = 0.45f
 
 /**
  * Creates an empty temp file in `filesDir/camera_temp/` and returns a FileProvider content Uri
@@ -515,11 +544,23 @@ private fun combineDateAndTime(dateUtcMillis: Long, hour: Int, minute: Int): Lon
         .toEpochMilli()
 }
 
-private val dateTimeLabelFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-
-private fun formatDateTimeLabel(epochMs: Long): String =
-    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(dateTimeLabelFormatter)
+// Locale-appropriate date + time, with the clock honouring the phone's "Use 24-hour format"
+// setting (java.time's localized formats follow the locale only, ignoring that toggle).
+@Composable
+private fun formatDateTimeLabel(epochMs: Long): String {
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
+    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    val formatter = remember(locale, is24Hour) {
+        val skeleton = if (is24Hour) "yMMMdHm" else "yMMMdhm"
+        val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
+        // getBestDateTimePattern is ICU-flavoured; fall back if it emits something java.time
+        // can't parse (e.g. the flexible day-period 'B' used by a few locales).
+        runCatching { DateTimeFormatter.ofPattern(pattern, locale) }
+            .getOrElse { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT) }
+    }
+    return Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(formatter)
+}
 
 @Composable
 private fun LinkDialog(
