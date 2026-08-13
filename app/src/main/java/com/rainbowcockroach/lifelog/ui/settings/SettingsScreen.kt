@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,6 +38,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,6 +49,8 @@ import com.rainbowcockroach.lifelog.BuildConfig
 import com.rainbowcockroach.lifelog.LifeLogApp
 import com.rainbowcockroach.lifelog.update.UpdateChecker
 import com.rainbowcockroach.lifelog.update.UpdateInfo
+import com.rainbowcockroach.lifelog.ui.icons.VisibilityIcon
+import com.rainbowcockroach.lifelog.ui.icons.VisibilityOffIcon
 import com.rainbowcockroach.lifelog.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 
@@ -96,6 +102,7 @@ fun SettingsScreen(
 ) {
     var baseUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
+    var apiKeyVisible by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
     var syncing by remember { mutableStateOf(false) }
     var syncStatus by remember { mutableStateOf<String?>(null) }
@@ -144,6 +151,20 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(top = 16.dp),
                 singleLine = true,
+                visualTransformation = if (apiKeyVisible) VisualTransformation.None
+                else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    autoCorrectEnabled = false,
+                ),
+                trailingIcon = {
+                    IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
+                        Icon(
+                            imageVector = if (apiKeyVisible) VisibilityOffIcon else VisibilityIcon,
+                            contentDescription = if (apiKeyVisible) "Hide API key" else "Show API key",
+                        )
+                    }
+                },
             )
 
             Row(
