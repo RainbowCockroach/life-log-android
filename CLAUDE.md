@@ -54,7 +54,8 @@ Cleartext HTTP only works for `10.0.2.2`, `localhost`, `127.0.0.1` (see `res/xml
 ```
 app/src/main/java/com/rainbowcockroach/lifelog/
 ├── LifeLogApp.kt              # Application — builds AppContainer, kicks off TagSyncWorker
-├── MainActivity.kt            # Compose entry + NavHost (editor ⇄ settings)
+├── MainActivity.kt            # Compose entry + NavHost (editor ⇄ settings) + share-intent handling
+├── SharedImages.kt            # Intent.extractSharedImageUris() — ACTION_SEND / SEND_MULTIPLE
 ├── di/AppContainer.kt         # Manual DI (no Hilt)
 ├── data/
 │   ├── EntryRepository.kt     # enqueue() + syncOne()
@@ -76,7 +77,9 @@ app/src/main/java/com/rainbowcockroach/lifelog/
 ├── ui/
 │   ├── editor/                # EditorScreen + EditorViewModel + TagPickerSheet
 │   └── settings/              # SettingsScreen + SettingsViewModel
-└── util/ImageStorage.kt       # Copy + downscale picked images into filesDir
+└── util/
+    ├── ImageStorage.kt        # Copy + rotate upright + downscale images into filesDir
+    └── ImageMetadata.kt       # EXIF / MediaStore capture time for "create entry from image"
 ```
 
 ## Key rules (read before changing things)
@@ -87,6 +90,9 @@ app/src/main/java/com/rainbowcockroach/lifelog/
 - **Don't add Hilt yet.** Use `AppContainer`; it's a few lines and covers the whole app. Revisit if the graph grows past ~10 singletons.
 - **No markdown editor library.** The editor is a `BasicTextField`/`OutlinedTextField` plus toolbar buttons that splice raw markdown (`![image](pending://<uuid>.jpg)`, `[🔗](url)`). The `pending://` token is rewritten to the server filename by `SyncWorker` — the server only ever sees the web-compatible `![image](filename.jpg)` form. Matches the web behavior in `life-log-web/src/page-editor/MarkdownEditor.tsx`.
 - **No markdown renderer yet** — MVP is write-only. If/when a viewer is added, use `multiplatform-markdown-renderer` (mikepenz) and render the QR for `[🔗](url)` links via zxing-core.
+- **`ImageStorage.importImage` never throws and always rotates.** It returns `Result.Ok`/`Result.Failed(reason)` — a bad URI (lapsed share grant, deleted file, undecodable format) must never take down a half-written entry. It also bakes the EXIF rotation into the pixels before downscaling, because the re-encode drops EXIF and a portrait photo would otherwise land sideways with no tag left to fix it. Rotate first, then mirror. See ARCHITECTURE.md → "Importing an image".
+- **HEIC needs API 28.** `BitmapFactory` can't decode HEIF below 28 and `minSdk` is 26, so `importImage` falls back to asking the provider for a JPEG rendition and, failing that, tells the user to re-share as JPEG. The SDK-level checks take `sdkInt` as a parameter so they stay unit testable. Raising `minSdk` to 28 would remove the whole branch.
+- **"Create entry from image" never guesses a date.** The share target (`ACTION_SEND` / `SEND_MULTIPLE`, `image/*`) prefills the entry's date/time from the photo's own metadata — EXIF `DateTimeOriginal`/`Digitized`/`DateTime`, then MediaStore `DATE_TAKEN` — and leaves it blank when the image carries none. Never fall back to the file's mtime: a picture copied around last week is not a moment in the diary. See ARCHITECTURE.md → "Create entry from image".
 - **Location is required, tags are optional.** Enforced in `EditorViewModel.save()`. The tag/location picker reads from the local Room cache (`cached_tags`) only — never the network — so it works offline. Cache is refreshed by `TagSyncWorker`. Inline tag creation is online-only; failures surface in the picker. See ARCHITECTURE.md → "Tags & location" for the data flow and the migration that adds the `cached_tags` table + `locationId`/`tagIdsJson` columns.
 
 ## API contract recap
