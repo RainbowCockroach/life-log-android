@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">LifeLog</string>
+    <string name="share_target_label">New LifeLog entry</string>
 </resources>

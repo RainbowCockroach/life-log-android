@@ -7,6 +7,7 @@ import com.rainbowcockroach.lifelog.data.TagRepository
 import com.rainbowcockroach.lifelog.data.local.AppDatabase
 import com.rainbowcockroach.lifelog.data.local.SettingsStore
 import com.rainbowcockroach.lifelog.data.remote.ApiClient
+import com.rainbowcockroach.lifelog.util.ImageMetadata
 import com.rainbowcockroach.lifelog.util.ImageStorage
 
 /**
@@ -31,6 +32,8 @@ class AppContainer(context: Context) {
         .build()
 
     val imageStorage: ImageStorage = ImageStorage(context)
+
+    val imageMetadata: ImageMetadata = ImageMetadata(context)
 
     val apiClient: ApiClient = ApiClient(settings)
 

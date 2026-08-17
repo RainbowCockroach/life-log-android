@@ -1,5 +1,6 @@
 package com.rainbowcockroach.lifelog.ui.editor
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,6 +70,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -80,6 +82,11 @@ import java.time.format.FormatStyle
 @Composable
 fun EditorScreen(
     onOpenSettings: () -> Unit,
+    /**
+     * Images handed over by the system share sheet ("create entry from image"). The screen
+     * imports them and clears the flow, so each share is consumed exactly once.
+     */
+    sharedImages: MutableStateFlow<List<Uri>> = remember { MutableStateFlow(emptyList()) },
     viewModel: EditorViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -101,8 +108,31 @@ fun EditorScreen(
 
     val context = LocalContext.current
 
+    val incomingShare by sharedImages.collectAsStateWithLifecycle()
+    LaunchedEffect(incomingShare) {
+        if (incomingShare.isEmpty()) return@LaunchedEffect
+        viewModel.addSharedImages(incomingShare)
+        sharedImages.value = emptyList()
+    }
+
+    // Reveal the Date section after every share so the prefilled timestamp — or the fact that
+    // the photo carried none — is visible without hunting for the toggle.
+    LaunchedEffect(state.sharedImportCount) {
+        if (state.sharedImportCount > 0) showDateSection = true
+    }
+
     val pickMedia = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) viewModel.addImage(uri)
+    }
+
+    // Devices without a system photo picker (pre-Android 13 without an updated MediaProvider)
+    // make PickVisualMedia fall back to SAF, where the only source is the Files browser. Plain
+    // ACTION_GET_CONTENT instead shows the app chooser, so Gallery/Photos are offered too.
+    // Android 13+ redirects this to the photo picker anyway, so it is only ever the fallback.
+    val pickFromApp = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) viewModel.addImage(uri)
     }
@@ -129,7 +159,13 @@ fun EditorScreen(
             onForceSync = viewModel::forceSyncNow,
             onOpenSettings = onOpenSettings,
             onContentChange = viewModel::onContentChange,
-            onPickImage = { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onPickImage = {
+                if (ActivityResultContracts.PickVisualMedia.isPhotoPickerAvailable(context)) {
+                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                } else {
+                    pickFromApp.launch("image/*")
+                }
+            },
             onTakePhoto = {
                 val uri = createCameraImageUri(context)
                 pendingCameraUri = uri
@@ -409,6 +445,15 @@ private fun EditorContent(
                                     }
                                 },
                             )
+                            // Say where the timestamp came from, so a wrong one from a photo's
+                            // metadata is obviously editable rather than mysterious.
+                            if (state.dateFromImage) {
+                                Text(
+                                    "from photo",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
