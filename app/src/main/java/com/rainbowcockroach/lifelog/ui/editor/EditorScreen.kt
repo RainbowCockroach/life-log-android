@@ -60,6 +60,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,14 +140,23 @@ fun EditorScreen(
 
     // Holds the FileProvider Uri the camera app writes the captured photo into, until the
     // result comes back and we import + downscale it like any other picked image.
-    var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    //
+    // rememberSaveable, not remember: a capture is memory-hungry enough that the system
+    // routinely destroys this activity — or kills the whole process — while the camera app is
+    // in front. A plain remember came back null on return, so the photo the user had just
+    // confirmed was dropped without a trace.
+    var pendingCameraUri by rememberSaveable { mutableStateOf<android.net.Uri?>(null) }
 
     val takePhoto = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
         val uri = pendingCameraUri
-        if (success && uri != null) viewModel.addImage(uri)
         pendingCameraUri = null
+        if (!success) return@rememberLauncherForActivityResult
+        // A photo was taken but we no longer know where it landed (saved state itself was
+        // dropped). Say so — silently doing nothing is what made this bug so hard to spot.
+        if (uri == null) viewModel.reportError("Couldn't attach that photo — please take it again")
+        else viewModel.addImage(uri)
     }
 
     // safeDrawing (unlike the Scaffold default) includes the IME, so the whole editor is
@@ -572,6 +582,10 @@ private const val METADATA_MAX_HEIGHT_FRACTION = 0.45f
  */
 private fun createCameraImageUri(context: android.content.Context): android.net.Uri {
     val dir = File(context.filesDir, "camera_temp").apply { mkdirs() }
+    // Every earlier capture has already been copied into pending storage (or was lost to a
+    // process kill mid-capture), so nothing here is still needed. Pruning on the way in is the
+    // only cleanup these full-resolution files ever get.
+    dir.listFiles()?.forEach { it.delete() }
     val file = File(dir, "capture_${System.currentTimeMillis()}.jpg")
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
