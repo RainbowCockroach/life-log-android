@@ -91,6 +91,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun createTag(name: String, type: String): CachedTag =
         tagRepository.createOnServer(name, type)
 
+    /** Surface a problem the screen ran into before the image ever reached the ViewModel. */
+    fun reportError(message: String) {
+        _state.update { it.copy(errorMessage = message) }
+    }
+
     fun addImage(uri: Uri) {
         viewModelScope.launch {
             when (val result = withContext(Dispatchers.IO) { imageStorage.importImage(uri) }) {
